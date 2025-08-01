@@ -1,12 +1,16 @@
 ﻿using MPPacket;
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 
 namespace MPServer
 {
     internal class Program
     {
+        private static GameManager _manager = new GameManager();
+
         public static void Main()
         {
             TcpListener server = new TcpListener(IPEndPoint.Parse("127.0.0.1:12345"));
@@ -16,19 +20,22 @@ namespace MPServer
 
             Thread ta, tb;
 
-            ta = new Thread(() => Handler(server));
-            tb = new Thread(() => Handler(server));
+            ta = new Thread(() => Handler(server, 1));
+            tb = new Thread(() => Handler(server, 2));
 
             ta.Start();
             tb.Start();
 
             ta.Join();
             tb.Join();
+
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
         }
 
-        public static void Handler(TcpListener server)
+        public static void Handler(TcpListener server, int p)
         {
-            string name = "TEMP";
+            string name = "Client";
 
             TcpClient client = server.AcceptTcpClient();
             Console.WriteLine($"{name} connected from {client.Client.RemoteEndPoint}.");
@@ -46,6 +53,34 @@ namespace MPServer
                     case PacketType.EnterRequest:
                         name = packet.Data[0];
                         Console.WriteLine($"{name} has entered the game.");
+
+                        if (p == 1)
+                        {
+                            lock (_manager)
+                            {
+                                _manager.EnterPlayer1();
+                            }
+                            client.GetStream().Write(new Packet(PacketType.EnterResponse, _manager.SyncInit()).Serialize());
+                        }
+                        else if (p == 2)
+                        {
+                            lock (_manager)
+                            {
+                                _manager.EnterPlayer2();
+                            }
+                            client.GetStream().Write(new Packet(PacketType.EnterResponse, _manager.SyncInit()).Serialize());
+                        }
+
+                        new Thread(() =>
+                        {
+                            while (true)
+                            {
+                                client.GetStream().Write(new Packet(PacketType.Update, _manager.SyncUpdate()).Serialize());
+                                Debug.WriteLine(JsonSerializer.Serialize(_manager));
+                                Thread.Sleep(1000 / 60);
+                            }
+
+                        }).Start();
 
                         break;
                     default:

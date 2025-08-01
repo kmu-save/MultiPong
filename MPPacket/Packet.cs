@@ -1,14 +1,17 @@
-﻿namespace MPPacket
+﻿using System.Text;
+using System.Text.Json;
+
+namespace MPPacket
 {
     public enum PacketType
     {
         EnterRequest,    // Player
         EnterResponse,   // Server
+
         LeaveRequest,    // Player
         LeaveResponse,   // Server
 
-        BallLocationUpdate,    // Server
-        PlayerLocationUpdate,  // Server
+        Update, // Server
 
         BallCollisionRequest,  // Player
         PlayerLocationRequest, // Player
@@ -28,15 +31,19 @@
 
         public byte[] Serialize()
         {
-            // Convert the packet to a byte array for transmission
-            throw new NotImplementedException("Serialization logic needs to be implemented.");
+            string json = JsonSerializer.Serialize(this);
+            byte[] data = Encoding.UTF8.GetBytes(json);
+
+            return data;
         }
 
         public static Packet Deserialize(byte[] data)
         {
-            // Convert the byte array back to a Packet object
-            // This will depend on how you choose to serialize the packet
-            throw new NotImplementedException("Deserialization logic needs to be implemented.");
+            string json = Encoding.UTF8.GetString(data).TrimEnd('\0');
+            Packet packet = JsonSerializer.Deserialize<Packet>(json) 
+                ?? throw new InvalidOperationException("Deserialization failed. Packet is null.");
+
+            return packet;
         }
     }
 }
