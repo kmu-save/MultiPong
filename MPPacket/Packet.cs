@@ -34,12 +34,19 @@ namespace MPPacket
             string json = JsonSerializer.Serialize(this);
             byte[] data = Encoding.UTF8.GetBytes(json);
 
-            return data;
+            byte[] packet = new byte[1024];
+
+            for (int i = 0; i < data.Length && i < packet.Length; i++)
+            {
+                packet[i] = data[i];
+            }
+
+            return packet;
         }
 
         public static Packet Deserialize(byte[] data, int length)
         {
-            string json = Encoding.UTF8.GetString(data, 0, length);
+            string json = Encoding.UTF8.GetString(data, 0, length).TrimEnd('\0');
             Packet packet = JsonSerializer.Deserialize<Packet>(json)
                 ?? throw new InvalidOperationException("Deserialization failed. Packet is null.");
 

@@ -109,7 +109,7 @@ namespace MPServer
                                 _manager.EnterPlayer2();
                             }
                         }
-                        client.GetStream().Write(new Packet(PacketType.EnterResponse, _manager.SyncInit()).Serialize());
+                        client.GetStream().Write(new Packet(PacketType.EnterResponse, _manager.SyncInit(pid)).Serialize());
 
                         break;
 
@@ -141,6 +141,39 @@ namespace MPServer
                         Console.WriteLine($"{name} has left the game.");
                         return;
 
+                    case PacketType.PlayerLocationRequest:
+                        string direction = packet.Data[0];
+                        int newY = 0;
+
+                        if (direction == "up")
+                        {
+                            newY = -10;
+                        }
+                        else if (direction == "down")
+                        {
+                            newY = 10;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{name} sent an invalid direction: {direction}");
+                            continue;
+                        }
+
+                        if (pid == 1)
+                        {
+                            lock (_manager)
+                            {
+                                _manager.RequestSetPlayer1Location(_manager.Player1.Y + newY);
+                            }
+                        }
+                        else if (pid == 2)
+                        {
+                            lock (_manager)
+                            {
+                                _manager.RequestSetPlayer2Location(_manager.Player2.Y + newY);
+                            }
+                        }
+                        break;
                     default:
                         Console.WriteLine($"{name} sent an unknown packet type: {packet.Type}");
                         break;

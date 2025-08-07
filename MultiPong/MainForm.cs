@@ -9,12 +9,32 @@ namespace MultiPong
         private GameManager _manager;
         private TcpClient _client;
         private int playerNumber;
-        Packet? leavePacket = null;
-        bool alreadySend = false;
+        private Packet? leavePacket = null;
+        private bool alreadySend = false;
+
         public MainForm()   
         {
             _manager = new GameManager();
             _client = new TcpClient();
+
+            KeyPreview = true;
+            KeyDown += (sender, e) =>
+            {
+                if (e.KeyCode == Keys.Down)
+                {
+                    Packet packet = new Packet(PacketType.PlayerLocationRequest, "down");
+                    _client.GetStream().Write(packet.Serialize());
+                }
+                else if (e.KeyCode == Keys.Up)
+                {
+                    Packet packet = new Packet(PacketType.PlayerLocationRequest, "up");
+                    _client.GetStream().Write(packet.Serialize());
+                }
+                else if (e.KeyCode == Keys.Space)
+                {
+
+                }
+            };
 
             _client.Connect(IPEndPoint.Parse("127.0.0.1:12345"));
 
@@ -55,7 +75,7 @@ namespace MultiPong
                 _manager.WithPlayer1 = bool.Parse(response.Data[11]);
                 _manager.WithPlayer2 = bool.Parse(response.Data[12]);
                 _manager.WithBall = bool.Parse(response.Data[13]);
-
+                
                 Thread t1, t2;
                 t1 = new Thread(Draw);
                 t2 = new Thread(Handler);
@@ -77,7 +97,7 @@ namespace MultiPong
             {
                 Thread.Sleep(1000 / 60);
 
-                if (this.IsDisposed || !this.IsHandleCreated) break;
+                //if (this.IsDisposed || !this.IsHandleCreated) break;
 
                 try
                 {

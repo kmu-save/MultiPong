@@ -63,7 +63,7 @@ namespace MPServer
             Player2 = new Point(Player2.X, newY);
         }
 
-        public string[] SyncInit()
+        public string[] SyncInit(int pid)
         {
             string[] data =
             [
@@ -81,7 +81,9 @@ namespace MPServer
                 $"{Ball.Y}",
                 $"{WithPlayer1}",
                 $"{WithPlayer2}",
-                $"{WithBall}"
+                $"{WithBall}",
+
+                $"{pid}",
             ];
 
             return data;
