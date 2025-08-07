@@ -37,10 +37,10 @@ namespace MPPacket
             return data;
         }
 
-        public static Packet Deserialize(byte[] data)
+        public static Packet Deserialize(byte[] data, int length)
         {
-            string json = Encoding.UTF8.GetString(data).TrimEnd('\0');
-            Packet packet = JsonSerializer.Deserialize<Packet>(json) 
+            string json = Encoding.UTF8.GetString(data, 0, length);
+            Packet packet = JsonSerializer.Deserialize<Packet>(json)
                 ?? throw new InvalidOperationException("Deserialization failed. Packet is null.");
 
             return packet;
