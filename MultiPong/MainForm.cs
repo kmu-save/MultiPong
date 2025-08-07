@@ -8,7 +8,9 @@ namespace MultiPong
     {
         private GameManager _manager;
         private TcpClient _client;
-
+        private int playerNumber;
+        Packet? leavePacket = null;
+        bool alreadySend = false;
         public MainForm()   
         {
             _manager = new GameManager();
@@ -16,14 +18,28 @@ namespace MultiPong
 
             _client.Connect(IPEndPoint.Parse("127.0.0.1:12345"));
 
-            Packet packet = new Packet(PacketType.EnterRequest, $"Player-{new Random().Next(1000, 10000)}");
+            playerNumber = new Random().Next(1000, 10000);
 
-            _client.GetStream().Write(packet.Serialize());
+            Packet packet = new Packet(PacketType.EnterRequest, $"Player-{playerNumber}");
+
+            try
+            {
+                _client.GetStream().Write(packet.Serialize());
+            }
+            catch (IOException)
+            {
+                Console.WriteLine("서버와의 연결이 끊겼습니다.");
+                if (_client.Connected)
+                {
+                    _client.Close();
+                }
+            }
 
             byte[] buffer = new byte[1024];
-            _client.GetStream().Read(buffer);
+            int bytesRead = 0;
+            bytesRead =_client.GetStream().Read(buffer, 0, buffer.Length);
 
-            Packet response = Packet.Deserialize(buffer);
+            Packet response = Packet.Deserialize(buffer, bytesRead);
 
             if (response.Type == PacketType.EnterResponse)
             {
@@ -40,16 +56,12 @@ namespace MultiPong
                 _manager.WithPlayer2 = bool.Parse(response.Data[12]);
                 _manager.WithBall = bool.Parse(response.Data[13]);
 
-                new Thread(() =>
-                {
-                    while (true)
-                    {
-                        Thread.Sleep(1000 / 60);
-                        Invoke(() => _manager.Redraw(this));
-                    }
-                }).Start();
+                Thread t1, t2;
+                t1 = new Thread(Draw);
+                t2 = new Thread(Handler);
 
-                new Thread(Handler).Start();
+                t1.Start();
+                t2.Start();
             }
             else
             {
@@ -57,15 +69,78 @@ namespace MultiPong
             }
         }
 
-        private void Handler()
+        private void Draw()
         {
-            byte[] buffer = new byte[1024];
+            leavePacket = new Packet(PacketType.LeaveRequest, $"Player-{playerNumber}");
 
             while (true)
             {
-                _client.GetStream().Read(buffer);
+                Thread.Sleep(1000 / 60);
 
-                Packet packet = Packet.Deserialize(buffer);
+                if (this.IsDisposed || !this.IsHandleCreated) break;
+
+                try
+                {
+                    this.Invoke(() => _manager.Redraw(this));
+                }
+                catch (ObjectDisposedException)
+                {
+                    if (_client.Connected && !alreadySend)
+                    {
+                        _client.GetStream().Write(leavePacket.Serialize());
+                        alreadySend = true;
+                    }
+
+                    break;
+                }
+                catch (InvalidOperationException)
+                {
+                    if (_client.Connected && !alreadySend)
+                    {
+                        _client.GetStream().Write(leavePacket.Serialize());
+                        alreadySend = true;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        private void Handler()
+        {
+            byte[] buffer = new byte[1024];
+            int bytesRead = 0;
+            bool shouldClose = false;
+            leavePacket = new Packet(PacketType.LeaveRequest, $"Player-{playerNumber}");
+
+            while (!shouldClose)
+            {
+                try
+                { 
+                    bytesRead = _client.GetStream().Read(buffer, 0, buffer.Length);
+                }
+                catch (IOException)
+                { 
+                    if (_client.Connected && !alreadySend)
+                    {
+                        _client.GetStream().Write(leavePacket.Serialize());
+                        alreadySend = true;
+                    }
+                    // LeaveResponse 패킷을 받기 전에 break되면 안되니까 break문 제거
+                    //break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    if (_client.Connected && !alreadySend)
+                    {
+                        _client.GetStream().Write(leavePacket.Serialize());
+                        alreadySend = true;
+                    }
+                    //break;
+                }
+                
+
+                Packet packet = Packet.Deserialize(buffer, bytesRead);
 
                 switch (packet.Type)
                 {
@@ -76,6 +151,12 @@ namespace MultiPong
                         _manager.WithPlayer1 = bool.Parse(packet.Data[4]);
                         _manager.WithPlayer2 = bool.Parse(packet.Data[5]);
                         _manager.WithBall = bool.Parse(packet.Data[6]);
+
+                        break;
+
+                    case PacketType.LeaveResponse:
+                        _client.Close();
+                        shouldClose = true;
 
                         break;
                 }

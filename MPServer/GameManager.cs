@@ -102,5 +102,15 @@ namespace MPServer
 
             return data;
         }
+
+        public void LeavePlayer1()
+        {
+            WithPlayer1 = false;
+        }
+
+        public void LeavePlayer2()
+        {
+            WithPlayer2 = false;
+        }
     }
 }
